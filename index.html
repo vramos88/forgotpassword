@@ -2,8 +2,7 @@
 <html>
 <head>
     <title>Reset Password - SuperInventario</title>
-    <!-- Update the Supabase script to the correct version -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2.39.7"></script>
     <style>
         body {
             font-family: -apple-system, system-ui, sans-serif;
@@ -76,7 +75,7 @@
 <body>
     <div class="container">
         <div id="resetForm">
-            <h2>Reset Your Password - 2</h2>
+            <h2>Reset Your Password-test</h2>
             <form id="passwordForm">
                 <input type="password" id="newPassword" placeholder="New Password" required minlength="6">
                 <button type="submit" id="submitButton">Update Password</button>
@@ -97,9 +96,7 @@
     <script>
         const supabaseUrl = 'https://httlxevacqfpdvmivoda.supabase.co'
         const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0dGx4ZXZhY3FmcGR2bWl2b2RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3MTcyMzQsImV4cCI6MjA2NDI5MzIzNH0.E3JE02sXHIKT0i1mwLsFsI9Ll9t4HZfPwwD3nCgXhno'
-        
-        // Initialize Supabase client correctly
-        const supabase = supabaseJs.createClient(supabaseUrl, supabaseAnonKey)
+        const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey)
 
         function debugLog(message, data = null) {
             const debug = document.getElementById('debug')
