@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Reset Password - Enter your new password below!!</title>
+    <title>Reset Password - SuperInventario</title>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        body { 
+        body {
             font-family: -apple-system, system-ui, sans-serif;
             display: flex;
             justify-content: center;
@@ -20,112 +20,170 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             width: 100%;
             max-width: 400px;
+            text-align: center;
+        }
+        .success-container {
+            display: none;
+            text-align: center;
+        }
+        .success-icon {
+            font-size: 48px;
+            color: #4CAF50;
+            margin-bottom: 16px;
         }
         input, button {
             width: 100%;
-            padding: 8px;
+            padding: 12px;
             margin: 8px 0;
             border: 1px solid #ddd;
             border-radius: 4px;
         }
         button {
-            background: #1a73e8;
+            background: #4CAF50;
             color: white;
             border: none;
             cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #45a049;
         }
         button:disabled {
-            background: #ccc;
+            background: #cccccc;
             cursor: not-allowed;
         }
-        .loading {
-            opacity: 0.5;
-            pointer-events: none;
+        #message {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 4px;
         }
-        #spinner {
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        .loading { background: #e3f2fd; color: #1565c0; }
+        #debug {
+            margin-top: 20px;
+            text-align: left;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 8px;
+            background: #f8f9fa;
             display: none;
-            margin-left: 8px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Reset Your Password</h2>
-        <form id="resetForm">
-            <input type="password" id="newPassword" placeholder="New Password" required minlength="6">
-            <button type="submit" id="submitButton">
-                Update Password
-                <span id="spinner">⟳</span>
-            </button>
-        </form>
-        <p id="message"></p>
+        <div id="resetForm">
+            <h2>Reset Your Password 2</h2>
+            <form id="passwordForm">
+                <input type="password" id="newPassword" placeholder="New Password" required minlength="6">
+                <button type="submit" id="submitButton">Update Password</button>
+            </form>
+            <p id="message"></p>
+        </div>
+        
+        <div id="successView" class="success-container">
+            <div class="success-icon">✓</div>
+            <h2>Password Reset Successful!</h2>
+            <p>Your password has been updated. You can now close this window and log in with your new password.</p>
+            <button onclick="window.close()">Close Window</button>
+        </div>
+        
+        <div id="debug"></div>
     </div>
+
     <script>
         const supabaseUrl = 'https://httlxevacqfpdvmivoda.supabase.co'
         const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0dGx4ZXZhY3FmcGR2bWl2b2RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3MTcyMzQsImV4cCI6MjA2NDI5MzIzNH0.E3JE02sXHIKT0i1mwLsFsI9Ll9t4HZfPwwD3nCgXhno'
+        
+        // Debug logger
+        function debugLog(message, data = null) {
+            const debug = document.getElementById('debug')
+            const timestamp = new Date().toISOString()
+            const logMessage = `${timestamp}: ${message}\n${data ? JSON.stringify(data, null, 2) : ''}\n\n`
+            debug.textContent += logMessage
+            debug.style.display = 'block'
+            console.log(message, data)
+        }
+
+        // Show message with type (error, success, loading)
+        function showMessage(text, type) {
+            const messageEl = document.getElementById('message')
+            messageEl.textContent = text
+            messageEl.className = type
+        }
+
+        // Show success view
+        function showSuccessView() {
+            document.getElementById('resetForm').style.display = 'none'
+            document.getElementById('successView').style.display = 'block'
+        }
+
         const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey)
-
-        const form = document.getElementById('resetForm')
+        const form = document.getElementById('passwordForm')
         const submitButton = document.getElementById('submitButton')
-        const messageEl = document.getElementById('message')
-        const spinner = document.getElementById('spinner')
 
-        // Get the access token from URL
+        // Get and validate access token
         const params = new URLSearchParams(window.location.hash.substring(1))
         const accessToken = params.get('access_token')
+        debugLog('Access Token from URL', { accessToken: accessToken?.substring(0, 10) + '...' })
 
         if (!accessToken) {
-            messageEl.textContent = 'Invalid reset link. Please request a new password reset.'
-            messageEl.style.color = 'red'
+            showMessage('Invalid reset link. Please request a new password reset.', 'error')
             submitButton.disabled = true
+            debugLog('No access token found')
             return
         }
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault()
-            
             const newPassword = document.getElementById('newPassword').value
+
             if (newPassword.length < 6) {
-                messageEl.textContent = 'Password must be at least 6 characters long'
-                messageEl.style.color = 'red'
+                showMessage('Password must be at least 6 characters long', 'error')
+                debugLog('Password validation failed', { length: newPassword.length })
                 return
             }
 
-            // Show loading state
             submitButton.disabled = true
-            spinner.style.display = 'inline'
-            messageEl.textContent = 'Updating password...'
-            messageEl.style.color = 'blue'
+            showMessage('Updating password...', 'loading')
+            debugLog('Starting password update process')
 
             try {
-                // Set the access token
-                const { data: { user }, error: sessionError } = await supabase.auth.setSession({
+                // Set session
+                debugLog('Setting session')
+                const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
                     access_token: accessToken,
                     refresh_token: null
                 })
 
-                if (sessionError) throw sessionError
+                if (sessionError) {
+                    throw sessionError
+                }
+                debugLog('Session set successfully', sessionData)
 
-                // Update the password
+                // Update password
+                debugLog('Updating password')
                 const { error } = await supabase.auth.updateUser({
                     password: newPassword
                 })
 
-                if (error) throw error
+                if (error) {
+                    throw error
+                }
 
-                // Success
-                messageEl.textContent = 'Password updated successfully! You can now close this window and log in with your new password.'
-                messageEl.style.color = 'green'
-                form.style.display = 'none'
+                debugLog('Password updated successfully')
+                showSuccessView()
 
             } catch (error) {
-                messageEl.textContent = error.message || 'Failed to update password. Please try again.'
-                messageEl.style.color = 'red'
+                debugLog('Error occurred', error)
+                showMessage(error.message || 'Failed to update password. Please try again.', 'error')
                 submitButton.disabled = false
-            } finally {
-                spinner.style.display = 'none'
             }
         })
+
+        debugLog('Page initialized')
     </script>
 </body>
 </html>
