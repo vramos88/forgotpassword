@@ -37,6 +37,7 @@
             margin: 8px 0;
             border: 1px solid #ddd;
             border-radius: 4px;
+            box-sizing: border-box; /* Added for consistent sizing */
         }
         button {
             background: #4CAF50;
@@ -68,6 +69,9 @@
             font-size: 12px;
             padding: 8px;
             background: #f8f9fa;
+            border: 1px solid #eee; /* Added border for better visibility */
+            max-height: 200px; /* Added max-height for long logs */
+            overflow-y: auto; /* Added scroll for long logs */
             display: none;
         }
     </style>
@@ -75,7 +79,7 @@
 <body>
     <div class="container">
         <div id="resetForm">
-            <h2>Reset Your Password-test</h2>
+            <h2>Reset Your Password-debug</h2>
             <form id="passwordForm">
                 <input type="password" id="newPassword" placeholder="New Password" required minlength="6">
                 <button type="submit" id="submitButton">Update Password</button>
@@ -94,96 +98,154 @@
     </div>
 
     <script>
-        const supabaseUrl = 'https://httlxevacqfpdvmivoda.supabase.co'
-        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0dGx4ZXZhY3FmcGR2bWl2b2RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3MTcyMzQsImV4cCI6MjA2NDI5MzIzNH0.E3JE02sXHIKT0i1mwLsFsI9Ll9t4HZfPwwD3nCgXhno'
-        const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey)
+        const supabaseUrl = 'https://httlxevacqfpdvmivoda.supabase.co';         // <-- IMPORTANT: Replace with your Supabase URL
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0dGx4ZXZhY3FmcGR2bWl2b2RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3MTcyMzQsImV4cCI6MjA2NDI5MzIzNH0.E3JE02sXHIKT0i1mwLsFsI9Ll9t4HZfPwwD3nCgXhno'; // <-- IMPORTANT: Replace with your Supabase Anon Key
+        let supabaseClient; // Declare here, will be initialized after checking global supabase
 
-        function debugLog(message, data = null) {
-            const debug = document.getElementById('debug')
-            const timestamp = new Date().toISOString()
-            const logMessage = `${timestamp}: ${message}\n${data ? JSON.stringify(data, null, 2) : ''}\n\n`
-            debug.textContent += logMessage
-            debug.style.display = 'block'
-            console.log(message, data)
+        // Function to display messages to the user
+        function showMessage(text, type) {
+            const messageEl = document.getElementById('message');
+            if (messageEl) {
+                messageEl.textContent = text;
+                messageEl.className = type; // Applies .error, .success, .loading styles
+            }
         }
 
-        function showMessage(text, type) {
-            const messageEl = document.getElementById('message')
-            messageEl.textContent = text
-            messageEl.className = type
+        // Check if the global supabase object from the CDN is available
+        // This runs immediately when the script tag is processed
+        if (typeof supabase === 'undefined' || typeof supabase.createClient !== 'function') {
+            console.error('Supabase client library (supabase-js) not loaded correctly or failed to initialize.');
+            // Attempt to show error message once DOM is loaded, as #message might not exist yet
+            document.addEventListener('DOMContentLoaded', () => {
+                 showMessage('A critical error occurred loading required resources. Please refresh or try again later.', 'error');
+                 const submitButton = document.getElementById('submitButton');
+                 if(submitButton) submitButton.disabled = true;
+            });
+        } else {
+            try {
+                supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey); // Initialize here
+                console.log('Supabase client initialized.');
+            } catch (e) {
+                console.error('Error initializing Supabase client:', e);
+                document.addEventListener('DOMContentLoaded', () => {
+                    showMessage('Failed to initialize connection. Please check configuration.', 'error');
+                    const submitButton = document.getElementById('submitButton');
+                    if(submitButton) submitButton.disabled = true;
+                });
+            }
+        }
+
+        function debugLog(message, data = null) {
+            const debug = document.getElementById('debug');
+            const timestamp = new Date().toISOString();
+            const logMessage = `${timestamp}: ${message}\n${data ? JSON.stringify(data, null, 2) : ''}\n\n`;
+            if (debug) {
+                debug.textContent += logMessage;
+                debug.style.display = 'block'; // Make sure it's visible
+                debug.scrollTop = debug.scrollHeight; // Scroll to bottom
+            }
+            console.log(message, data);
         }
 
         function showSuccessView() {
-            document.getElementById('resetForm').style.display = 'none'
-            document.getElementById('successView').style.display = 'block'
+            const resetForm = document.getElementById('resetForm');
+            const successView = document.getElementById('successView');
+            if (resetForm) resetForm.style.display = 'none';
+            if (successView) successView.style.display = 'block';
         }
 
-        // Get URL parameters
+        // Get URL parameters from the hash fragment
         function getQueryParams() {
-            const hash = window.location.hash.substring(1)
-            return Object.fromEntries(new URLSearchParams(hash))
+            const hash = window.location.hash.substring(1); // Remove the leading '#'
+            return Object.fromEntries(new URLSearchParams(hash));
         }
 
-        // Initialize
-        const params = getQueryParams()
-        const accessToken = params.access_token
-        const type = params.type
-
-        debugLog('URL Parameters', params)
-        debugLog('Access Token', { token: accessToken?.substring(0, 10) + '...' })
-        debugLog('Type', { type })
-
-        const form = document.getElementById('passwordForm')
-        const submitButton = document.getElementById('submitButton')
-
-        if (!accessToken || type !== 'recovery') {
-            showMessage('Invalid reset link. Please request a new password reset.', 'error')
-            submitButton.disabled = true
-            debugLog('Invalid token or type')
-        }
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault()
-            const newPassword = document.getElementById('newPassword').value
-
-            if (newPassword.length < 6) {
-                showMessage('Password must be at least 6 characters long', 'error')
-                debugLog('Password validation failed', { length: newPassword.length })
-                return
+        // --- Start of logic that depends on DOM being ready and supabaseClient ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Ensure supabaseClient was initialized successfully before proceeding
+            if (!supabaseClient) {
+                debugLog('Supabase client not initialized. Aborting further script execution for password reset.');
+                // Message should have been shown by initialization block if it failed
+                return;
             }
 
-            submitButton.disabled = true
-            showMessage('Updating password...', 'loading')
-            debugLog('Starting password update process')
+            const params = getQueryParams();
+            const accessToken = params.access_token;
+            const type = params.type; // Should be 'recovery'
 
-            try {
-                debugLog('Setting session')
-                const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-                    access_token: accessToken,
-                    refresh_token: params.refresh_token || null
-                })
-
-                if (sessionError) throw sessionError
-                debugLog('Session set successfully', sessionData)
-
-                debugLog('Updating password')
-                const { error } = await supabase.auth.updateUser({
-                    password: newPassword
-                })
-
-                if (error) throw error
-
-                debugLog('Password updated successfully')
-                showSuccessView()
-
-            } catch (error) {
-                debugLog('Error occurred', error)
-                showMessage(error.message || 'Failed to update password. Please try again.', 'error')
-                submitButton.disabled = false
+            debugLog('Page loaded. URL Parameters:', params);
+            if (accessToken) {
+                debugLog('Access Token (first 10 chars):', { token: accessToken.substring(0, 10) + '...' });
+            } else {
+                debugLog('Access Token: Not found in URL hash.');
             }
-        })
+            debugLog('Type from URL:', { type });
 
-        debugLog('Page initialized')
+            const form = document.getElementById('passwordForm');
+            const submitButton = document.getElementById('submitButton');
+            const newPasswordInput = document.getElementById('newPassword');
+
+            if (!form || !submitButton || !newPasswordInput) {
+                showMessage('Page elements missing. Please refresh the page.', 'error');
+                debugLog('Essential form elements not found.');
+                if(submitButton) submitButton.disabled = true;
+                return;
+            }
+
+            // Check if the link is a valid recovery link
+            if (!accessToken || type !== 'recovery') {
+                showMessage('This password reset link is invalid or has expired. Please request a new one.', 'error');
+                submitButton.disabled = true;
+                debugLog('Invalid or missing access_token or type is not "recovery".', { hasToken: !!accessToken, type });
+                return; // Stop further execution if the link is invalid
+            }
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const newPassword = newPasswordInput.value;
+
+                if (newPassword.length < 6) {
+                    showMessage('Password must be at least 6 characters long.', 'error');
+                    debugLog('Password validation failed: too short.', { length: newPassword.length });
+                    return;
+                }
+
+                submitButton.disabled = true;
+                showMessage('Updating your password...', 'loading');
+                debugLog('Password update process started.');
+
+                try {
+                    // The Supabase JS client automatically uses the access_token from the URL fragment (#)
+                    // for `updateUser` when it's a recovery flow.
+                    // You do NOT need to call setSession() with the recovery token.
+                    debugLog('Calling supabaseClient.auth.updateUser(). The access token from the URL hash will be used automatically.');
+                    const { data, error } = await supabaseClient.auth.updateUser({
+                        password: newPassword
+                    });
+
+                    if (error) {
+                        // More specific error handling based on Supabase error messages could be added here
+                        throw error;
+                    }
+
+                    debugLog('Password updated successfully via Supabase.', data);
+                    showSuccessView();
+
+                } catch (error) {
+                    debugLog('Error occurred during password update:', error);
+                    let errorMessage = 'Failed to update password. The link might have expired or an unexpected error occurred. Please try requesting a new link.';
+                    if (error.message) {
+                        errorMessage = error.message;
+                    }
+                    showMessage(errorMessage, 'error');
+                    submitButton.disabled = false; // Re-enable button on failure
+                }
+            });
+
+            debugLog('Password reset page initialized and event listener for form submission is set up.');
+        });
+        // --- End of DOMContentLoaded logic ---
+
     </script>
 </body>
 </html>
