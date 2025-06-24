@@ -1,14 +1,10 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>Reset Password - SuperInventario</title>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <!-- Previous styles remain the same -->
-</head>
+<!-- Previous head and styles remain the same -->
 <body>
     <div class="container">
         <div id="resetForm">
-            <h2>Reset Your Password 3</h2>
+            <h2>Reset Your Password</h2>
             <form id="passwordForm">
                 <input type="password" id="newPassword" placeholder="New Password" required minlength="6">
                 <button type="submit" id="submitButton">Update Password</button>
@@ -27,11 +23,10 @@
     </div>
 
     <script>
-        // Initialize variables and functions
         const supabaseUrl = 'https://httlxevacqfpdvmivoda.supabase.co'
         const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0dGx4ZXZhY3FmcGR2bWl2b2RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3MTcyMzQsImV4cCI6MjA2NDI5MzIzNH0.E3JE02sXHIKT0i1mwLsFsI9Ll9t4HZfPwwD3nCgXhno'
         const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey)
-        
+
         function debugLog(message, data = null) {
             const debug = document.getElementById('debug')
             const timestamp = new Date().toISOString()
@@ -52,22 +47,31 @@
             document.getElementById('successView').style.display = 'block'
         }
 
-        // Initialize form handling
-        const form = document.getElementById('passwordForm')
-        const submitButton = document.getElementById('submitButton')
+        // Get URL parameters
+        function getQueryParams() {
+            const hash = window.location.hash.substring(1)
+            return Object.fromEntries(new URLSearchParams(hash))
+        }
 
-        // Check access token
-        const params = new URLSearchParams(window.location.hash.substring(1))
-        const accessToken = params.get('access_token')
-        debugLog('Access Token from URL', { accessToken: accessToken?.substring(0, 10) + '...' })
+        // Initialize
+        const params = getQueryParams()
+        const accessToken = params.access_token
+        const type = params.type
 
-        if (!accessToken) {
+        debugLog('URL Parameters', params)
+        debugLog('Access Token', { token: accessToken?.substring(0, 10) + '...' })
+        debugLog('Type', { type })
+
+        if (!accessToken || type !== 'recovery') {
             showMessage('Invalid reset link. Please request a new password reset.', 'error')
             submitButton.disabled = true
-            debugLog('No access token found')
+            debugLog('Invalid token or type')
         }
 
         // Handle form submission
+        const form = document.getElementById('passwordForm')
+        const submitButton = document.getElementById('submitButton')
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault()
             const newPassword = document.getElementById('newPassword').value
@@ -86,7 +90,7 @@
                 debugLog('Setting session')
                 const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
                     access_token: accessToken,
-                    refresh_token: null
+                    refresh_token: params.refresh_token || null
                 })
 
                 if (sessionError) throw sessionError
