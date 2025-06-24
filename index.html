@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Reset Password - SuperInventario</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>Reset Password - Enter your new password below!!</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
         body { 
             font-family: -apple-system, system-ui, sans-serif;
@@ -34,35 +34,96 @@
             border: none;
             cursor: pointer;
         }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        #spinner {
+            display: none;
+            margin-left: 8px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Reset Your Password</h2>
         <form id="resetForm">
-            <input type="password" id="newPassword" placeholder="New Password" required>
-            <button type="submit">Update Password</button>
+            <input type="password" id="newPassword" placeholder="New Password" required minlength="6">
+            <button type="submit" id="submitButton">
+                Update Password
+                <span id="spinner">⟳</span>
+            </button>
         </form>
         <p id="message"></p>
     </div>
     <script>
         const supabaseUrl = 'https://httlxevacqfpdvmivoda.supabase.co'
         const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0dGx4ZXZhY3FmcGR2bWl2b2RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg3MTcyMzQsImV4cCI6MjA2NDI5MzIzNH0.E3JE02sXHIKT0i1mwLsFsI9Ll9t4HZfPwwD3nCgXhno'
-        const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey)
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey)
 
-        document.getElementById('resetForm').addEventListener('submit', async (e) => {
+        const form = document.getElementById('resetForm')
+        const submitButton = document.getElementById('submitButton')
+        const messageEl = document.getElementById('message')
+        const spinner = document.getElementById('spinner')
+
+        // Get the access token from URL
+        const params = new URLSearchParams(window.location.hash.substring(1))
+        const accessToken = params.get('access_token')
+
+        if (!accessToken) {
+            messageEl.textContent = 'Invalid reset link. Please request a new password reset.'
+            messageEl.style.color = 'red'
+            submitButton.disabled = true
+            return
+        }
+
+        form.addEventListener('submit', async (e) => {
             e.preventDefault()
+            
             const newPassword = document.getElementById('newPassword').value
-            const messageEl = document.getElementById('message')
+            if (newPassword.length < 6) {
+                messageEl.textContent = 'Password must be at least 6 characters long'
+                messageEl.style.color = 'red'
+                return
+            }
+
+            // Show loading state
+            submitButton.disabled = true
+            spinner.style.display = 'inline'
+            messageEl.textContent = 'Updating password...'
+            messageEl.style.color = 'blue'
 
             try {
-                const { error } = await supabase.auth.updateUser({ password: newPassword })
+                // Set the access token
+                const { data: { user }, error: sessionError } = await supabase.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: null
+                })
+
+                if (sessionError) throw sessionError
+
+                // Update the password
+                const { error } = await supabase.auth.updateUser({
+                    password: newPassword
+                })
+
                 if (error) throw error
-                messageEl.textContent = 'Password updated successfully!'
+
+                // Success
+                messageEl.textContent = 'Password updated successfully! You can now close this window and log in with your new password.'
                 messageEl.style.color = 'green'
+                form.style.display = 'none'
+
             } catch (error) {
-                messageEl.textContent = error.message
+                messageEl.textContent = error.message || 'Failed to update password. Please try again.'
                 messageEl.style.color = 'red'
+                submitButton.disabled = false
+            } finally {
+                spinner.style.display = 'none'
             }
         })
     </script>
